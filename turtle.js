@@ -35,9 +35,11 @@
     return r < 0 ? r + b : r;
   }
 
-  function CanvasTurtle(canvas_ctx, turtle_ctx, w, h, events) {
+  function CanvasTurtle(canvas_ctx, turtle_ctx, w, h, events, moveCallback) {
     // Stub for old browsers w/ canvas but no text functions
     canvas_ctx.fillText = canvas_ctx.fillText || function fillText(string, x, y) { };
+    this.moveCallback =
+        typeof moveCallback != undefined ? moveCallback : function(x, y) {};
 
     this.canvas_ctx = canvas_ctx;
     this.turtle_ctx = turtle_ctx;
@@ -202,6 +204,7 @@
         this.was_oob = oob;
         this.px = px;
         this.py = py;
+        this.moveCallback(this.x, this.y);
       } else {
         this.was_oob = false;
       }
@@ -214,6 +217,7 @@
           _go(this.x, this.y, x, y);
           this.x = this.px = x;
           this.y = this.py = y;
+          this.moveCallback(this.x, this.y);
           return;
 
         default:
@@ -273,11 +277,13 @@
             // FENCE - stop on collision
             this.x = this.px = ix;
             this.y = this.py = iy;
+            this.moveCallback(this.x, this.y);
             return;
           } else {
             // WRAP - keep going
             this.x = wx;
             this.y = wy;
+            this.moveCallback(this.x, this.y);
             if (fx >= 1 && fy >= 1)
               return;
           }
@@ -332,6 +338,7 @@
       if (point) {
         this.x = this.px = saved_x;
         this.y = this.px = saved_y;
+        this.moveCallback(this.x, this.y);
       }
     }},
 
@@ -566,6 +573,7 @@
         var sx = sc[0], sy = sc[1];
         this.x = this.px = this.x / sx * this.sx;
         this.y = this.py = this.y / sy * this.sy;
+        this.moveCallback(this.x, this.y);
 
         this.sx = sx;
         this.sy = sy;

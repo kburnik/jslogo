@@ -19,6 +19,7 @@
   "dependencies": {
     "argparse": "^1.0.9",
     "autotrace": "0.0.2",
-    "canvas": "^1.6.9"
+    "canvas": "^1.6.9",
+    "jimp": "^0.2.28"
   }
 }

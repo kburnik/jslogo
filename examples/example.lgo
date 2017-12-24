@@ -1,0 +1,9 @@
+make "x [1 2 3]
+repeat 6 [
+  repeat 10 [fd 10] rt 60
+  pr "line show :x
+]
+
+rt 30 pu fd 20 pd fill
+
+pu setpos [300 300]
