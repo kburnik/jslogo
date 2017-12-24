@@ -3661,3 +3661,7 @@ function LogoInterpreter(turtle, stream, savehook)
     return Promise.resolve(value);
   });
 }
+
+if (typeof module !== 'undefined' && typeof module.exports !== 'undefined') {
+  module.exports = LogoInterpreter;
+}

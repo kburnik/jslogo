@@ -108,7 +108,9 @@
     _tick: {value: function() {
       function invert(p) { return [-p[0], p[1]]; }
 
-      requestAnimationFrame(this._tick.bind(this));
+      if (typeof requestAnimationFrame != 'undefined') {
+        requestAnimationFrame(this._tick.bind(this));
+      }
       var cur = JSON.stringify([this.x, this.y, this.r, this.visible,
                                 this.sx, this.sy, this.width, this.height]);
       if (cur === this._last_state) return;
@@ -591,5 +593,9 @@
 
   });
 
-  global.CanvasTurtle = CanvasTurtle;
-}(self));
+  if (typeof module !== 'undefined' && typeof module.exports !== 'undefined') {
+    module.exports = CanvasTurtle;
+  } else {
+    global.CanvasTurtle = CanvasTurtle;
+  }
+}(typeof self != 'undefined' ? self : {}));

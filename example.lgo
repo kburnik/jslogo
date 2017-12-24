@@ -1,0 +1,2 @@
+make "x [1 2 3]
+repeat 4 [repeat 10 [fd 10] rt 90 pr "line show :x]

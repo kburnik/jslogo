@@ -1,0 +1,24 @@
+{
+  "name": "jslogo",
+  "version": "1.0.0",
+  "description": "Nodified JS logo",
+  "main": "headless.js",
+  "scripts": {
+    "test": "node headless.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kburnik/jslogo.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/kburnik/jslogo/issues"
+  },
+  "homepage": "https://github.com/kburnik/jslogo#readme",
+  "dependencies": {
+    "argparse": "^1.0.9",
+    "autotrace": "0.0.2",
+    "canvas": "^1.6.9"
+  }
+}
