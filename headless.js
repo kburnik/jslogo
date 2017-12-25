@@ -4,9 +4,9 @@ const BoundingBox = require('./boundingbox.js');
 const Canvas = require('canvas');
 const floodFill = require('./floodfill.js')
 const fs = require('fs');
-const LogoInterpreter = require("./logo.js");
-const LogoStream = require("./stream.js");
-const Turtle = require("./turtle.js");
+const LogoInterpreter = require('./logo.js');
+const LogoStream = require('./stream.js');
+const Turtle = require('./turtle.js');
 const util = require('util');
 const Jimp = require('jimp');
 
@@ -14,7 +14,8 @@ const Jimp = require('jimp');
 fs.readFileAsync = util.promisify(fs.readFile);
 fs.writeFileAsync = util.promisify(fs.writeFile);
 
-function buildEnvironment(canvasWidth, canvasHeight, maxCycles, wstream) {
+function buildEnvironment(
+    canvasWidth, canvasHeight, maxCycles, maxStack, wstream) {
   var canvas = new Canvas(canvasWidth, canvasHeight, 'png');
   var turtle_canvas = new Canvas(10, 10);
   var canvas_ctx = canvas.getContext('2d');
@@ -29,6 +30,8 @@ function buildEnvironment(canvasWidth, canvasHeight, maxCycles, wstream) {
   // Attach the filling extension.
   canvas_ctx.floodFill = floodFill;
 
+  var env;
+
   var turtle = new Turtle(
       canvas_ctx,
       turtle_ctx,
@@ -36,6 +39,7 @@ function buildEnvironment(canvasWidth, canvasHeight, maxCycles, wstream) {
       canvasHeight,
       /*events=*/null,
       /*moveCallback=*/function(x, y) {
+        env.moveCount++;
         if (turtle.pendown) {
           boundingBox.update(x, y);
         }
@@ -45,9 +49,16 @@ function buildEnvironment(canvasWidth, canvasHeight, maxCycles, wstream) {
       turtle,
       stream,
       /*savehook=*/false,
-      maxCycles);
+      maxCycles,
+      maxStack);
 
-  return {logo: logo, canvas: canvas, stream: stream, box: boundingBox};
+  env = {
+      logo: logo,
+      canvas: canvas,
+      stream: stream,
+      box: boundingBox,
+      moveCount: 0};
+  return env;
 }
 
 
@@ -59,14 +70,20 @@ process.on('unhandledRejection', (err) => {
 
 function main(args) {
   var out = {
-    text: args.out + ".txt",
-    html: args.out + ".html",
-    image: args.out + ".png",
-    details: args.out + ".json"
+    text: args.out + '.txt',
+    html: args.out + '.html',
+    image: args.out + '.png',
+    details: args.out + '.json'
   }
   var wstream = fs.createWriteStream(out.text);
 
-  var env = buildEnvironment(args.width, args.height, args.max_cycles, wstream);
+  var env = buildEnvironment(
+      args.width,
+      args.height,
+      args.max_cycles,
+      args.max_stack,
+      wstream);
+
   var startTime = null;
   var executionTime = null;
   var box = null;
@@ -74,12 +91,16 @@ function main(args) {
   fs.readFileAsync(args.file, 'utf8')
   .then(function(sourceCode) {
     startTime = process.hrtime();
-    console.log("Running");
+    console.log('Running');
     return env.logo.run(sourceCode);
   })
   .then(function() {
-    console.log("Done.");
     executionTime = process.hrtime(startTime)[1] / 1000000;
+    console.log('Done.');
+    console.info('Runtime', executionTime, 'ms');
+    console.info('Cycles', env.logo.cycles);
+    console.info('Stack peak', env.logo.stackPeak);
+    console.info('Move count', env.moveCount);
     wstream.end();
     return fs.writeFileAsync(out.image, env.canvas.toBuffer());
   })
@@ -106,16 +127,18 @@ function main(args) {
     return fs.writeFileAsync(
         out.details,
         JSON.stringify({
-          'execution': {time: executionTime, cycles: env.logo.cycles},
+          'execution': {time: executionTime,
+                        cycles: env.logo.cycles,
+                        stackPeak: env.logo.stackPeak,
+                        moveCount: env.moveCount},
           'bounding_box': [box.min.x, box.min.y, box.max.x, box.max.y],
         }, null, 2));
   })
   .catch(function(err) {
-    console.error("Error", err);
+    console.error('Error', err);
     process.exit(1);
   })
   .then(function(){
-    console.info('Execution took', executionTime, 'ms');
     process.exit(0);
   });
 }
@@ -151,8 +174,13 @@ parser.addArgument(
      help: 'Bounding box margin (pixels)'});
 parser.addArgument(
     ['-x', '--max_cycles'],
-    {defaultValue: 50000,
+    {defaultValue: 80000,
      type: 'int',
      help: 'Maximum number of execution cycles'});
+parser.addArgument(
+    ['-s', '--max_stack'],
+    {defaultValue: 10000,
+     type: 'int',
+     help: 'Maximum size of stack'});
 
 main(parser.parseArgs());

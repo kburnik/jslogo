@@ -1,0 +1,6 @@
+to overstack :x
+ show :x
+ overstack :x+1
+end
+
+overstack 1

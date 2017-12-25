@@ -16,7 +16,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-function LogoInterpreter(turtle, stream, savehook, maxCycles)
+function LogoInterpreter(turtle, stream, savehook, maxCycles, maxStack)
 {
   'use strict';
 
@@ -362,7 +362,9 @@ function LogoInterpreter(turtle, stream, savehook, maxCycles)
   self.prng = new PRNG(Math.random() * 0x7fffffff);
   self.forceBye = false;
   self.cycles = 0;
+  self.stackPeak = 0;
   self.maxCycles = typeof maxCycles != 'undefined' ? maxCycles : -1;
+  self.maxStack = typeof maxStack != 'undefined' ? maxStack : -1;
 
   //----------------------------------------------------------------------
   //
@@ -1100,6 +1102,13 @@ function LogoInterpreter(turtle, stream, savehook, maxCycles)
     var lastResult;
     return promiseLoop(function(loop, resolve, reject) {
       self.cycles++;
+      self.stackPeak = Math.max(self.stackPeak, self.stack.length);
+      if (self.maxStack > 0 && self.stack.length > self.maxStack) {
+        reject(err(
+            'Reached stack limit: {maxStack}',
+            {maxStack: maxStack},
+            ERRORS.STACK_LIMIT));
+      }
       if (self.maxCycles > 0 && self.cycles >= maxCycles) {
         reject(err(
             'Max cycles reached: {maxCycles}',
