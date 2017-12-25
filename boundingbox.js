@@ -11,6 +11,10 @@ Point.prototype.toImageCoordinates = function(w, h) {
   return new Point(w / 2 + this.x, h / 2 - this.y);
 }
 
+Point.prototype.toJson = function() {
+  return {x: this.x, y: this.y};
+}
+
 
 function BoundingBox(maxWidth, maxHeight, clamp) {
   this.clamp = clamp;
@@ -27,12 +31,21 @@ BoundingBox.prototype.update = function(x, y) {
     x = clamp(x, -this.maxWidth / 2, this.maxWidth / 2);
     y = clamp(y, -this.maxHeight / 2, this.maxHeight / 2);
   }
-  this.min.x = Math.min(this.min.x, x);
-  this.min.y = Math.min(this.min.y, y);
-  this.max.x = Math.max(this.max.x, x);
-  this.max.y = Math.max(this.max.y, y);
+  this.min.x = Math.round(Math.min(this.min.x, x));
+  this.min.y = Math.round(Math.min(this.min.y, y));
+  this.max.x = Math.round(Math.max(this.max.x, x));
+  this.max.y = Math.round(Math.max(this.max.y, y));
   this.width = Math.round(this.max.x - this.min.x + 1);
   this.height = Math.round(this.max.y - this.min.y + 1);
+}
+
+BoundingBox.prototype.toJson = function() {
+  return {
+    min: this.min.toJson(),
+    max: this.max.toJson(),
+    width: this.width,
+    height: this.height
+  }
 }
 
 BoundingBox.prototype.toImageCoordinates = function() {

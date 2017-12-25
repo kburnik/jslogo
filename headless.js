@@ -14,8 +14,9 @@ const Jimp = require('jimp');
 fs.readFileAsync = util.promisify(fs.readFile);
 fs.writeFileAsync = util.promisify(fs.writeFile);
 
+
 function buildEnvironment(
-    canvasWidth, canvasHeight, maxCycles, maxStack, wstream) {
+    canvasWidth, canvasHeight, maxCycles, maxStack, tag, wstream) {
   var canvas = new Canvas(canvasWidth, canvasHeight, 'png');
   var turtle_canvas = new Canvas(10, 10);
   var canvas_ctx = canvas.getContext('2d');
@@ -24,6 +25,7 @@ function buildEnvironment(
   var stream = LogoStream(wstream);
 
   var boundingBox = new BoundingBox(canvasWidth, canvasHeight, /*clamp=*/true);
+
   // Set up the default size for empty images.
   boundingBox.update(0, 0);
 
@@ -39,7 +41,7 @@ function buildEnvironment(
       canvasHeight,
       /*events=*/null,
       /*moveCallback=*/function(x, y) {
-        env.moveCount++;
+        env.executionDetails.moveCount++;
         if (turtle.pendown) {
           boundingBox.update(x, y);
         }
@@ -56,91 +58,123 @@ function buildEnvironment(
       logo: logo,
       canvas: canvas,
       stream: stream,
-      box: boundingBox,
-      moveCount: 0};
+      wstream: wstream,
+      executionDetails: {
+        tag: tag,
+        startTime: 0,
+        runTime: 0,
+        cycles: 0,
+        stackPeak: 0,
+        moveCount: 0,
+        boundingBox: boundingBox,
+        error: null
+      },
+      startTimer :function() {
+        this.executionDetails.startTime = new Date();
+      },
+      updateExecutionDetails: function() {
+        this.executionDetails.runTime =
+            new Date() - this.executionDetails.startTime;
+        this.executionDetails.cycles = this.logo.cycles;
+        this.executionDetails.stackPeak = this.logo.stackPeak;
+      }};
+
   return env;
 }
 
 
-process.on('unhandledRejection', (err) => {
-  console.error(err);
-  process.exit(2);
-});
+function executeSourceFile(sourceFilename, env) {
+  return fs.readFileAsync(sourceFilename, 'utf8')
+    .then(function(sourceCode) {
+      env.startTimer();
+      console.log('Running');
+      return env.logo.run(sourceCode);
+    }).then(function() {
+      console.log('Done.');
+      env.updateExecutionDetails();
+    });
+}
 
+function saveExecutionState(args, env, out, err) {
+  // Close the text output stream.
+  env.wstream.end();
+  env.executionDetails.error = err;
+  var boundingBox = env.executionDetails.boundingBox;
+  var box = boundingBox.expand(args.margin).toImageCoordinates();
+  return Promise.all([
+    saveImage(env.canvas.toBuffer(), box, out.image),
+    saveExecutionDetails(env.executionDetails, out.details)
+  ]);
+}
+
+function saveImage(bufferedImage, box, filename) {
+  return Jimp.read(bufferedImage).then(function(image) {
+    return new Promise(function(resolve, reject) {
+      image.crop(box.min.x, box.min.y, box.width, box.height)
+        .write(filename, function(err) {
+          if (err) {
+            reject();
+          } else {
+            resolve();
+          }
+        });
+    });
+  })
+}
+
+function saveError(err, filename) {
+  return fs.writeFileAsync(filename, err);
+}
+
+function saveExecutionDetails(executionDetails, detailsFilename) {
+  var serializedExecutionDetails = JSON.stringify(executionDetails, null, 2);
+  console.info(serializedExecutionDetails);
+  return fs.writeFileAsync(detailsFilename, serializedExecutionDetails);
+}
 
 function main(args) {
   var out = {
-    text: args.out + '.txt',
-    html: args.out + '.html',
+    output: args.out + '.out',
     image: args.out + '.png',
-    details: args.out + '.json'
+    details: args.out + '.json',
+    error: args.out + ".err"
   }
-  var wstream = fs.createWriteStream(out.text);
+
+  // Create stream for text output.
+  var wstream = fs.createWriteStream(out.output);
 
   var env = buildEnvironment(
       args.width,
       args.height,
       args.max_cycles,
       args.max_stack,
+      args.tag,
       wstream);
 
-  var startTime = null;
-  var executionTime = null;
-  var box = null;
-
-  fs.readFileAsync(args.file, 'utf8')
-  .then(function(sourceCode) {
-    startTime = process.hrtime();
-    console.log('Running');
-    return env.logo.run(sourceCode);
-  })
-  .then(function() {
-    executionTime = process.hrtime(startTime)[1] / 1000000;
-    console.log('Done.');
-    console.info('Runtime', executionTime, 'ms');
-    console.info('Cycles', env.logo.cycles);
-    console.info('Stack peak', env.logo.stackPeak);
-    console.info('Move count', env.moveCount);
-    wstream.end();
-    return fs.writeFileAsync(out.image, env.canvas.toBuffer());
-  })
-  .then(function() {
-    return Jimp.read(out.image)
-  })
-  .then(function(image) {
-    return new Promise(function(resolve, reject) {
-      box = env.box.expand(args.margin).toImageCoordinates();
-      image.crop(box.min.x, box.min.y, box.width, box.height)
-        .write(out.image, function(err){
-          if (err) reject();
-          resolve();
-        });
-    });
-  })
-  .then(function() {
-    return fs.writeFileAsync(
-        out.html,
-        '<body style="background: black; width:100%; height:100%;">' +
-        '<img src="' + out.image.split('/').pop() + '" /></body>');
-  })
-  .then(function() {
-    return fs.writeFileAsync(
-        out.details,
-        JSON.stringify({
-          'execution': {time: executionTime,
-                        cycles: env.logo.cycles,
-                        stackPeak: env.logo.stackPeak,
-                        moveCount: env.moveCount},
-          'bounding_box': [box.min.x, box.min.y, box.max.x, box.max.y],
-        }, null, 2));
-  })
-  .catch(function(err) {
-    console.error('Error', err);
-    process.exit(1);
-  })
-  .then(function(){
-    process.exit(0);
+  var handlingError = false;
+  process.on('unhandledRejection', (err) => {
+    if (handlingError) {
+      console.error("Already handling an error.");
+      process.exit(2);
+    }
+    handlingError = true;
+    env.updateExecutionDetails();
+    saveError(util.format(err), out.error)
+    .then(function() {
+      return saveExecutionState(args, env, out, err);
+    })
+    .then(function(){
+      console.error(err);
+      process.exit(1);
+    })
   });
+
+  executeSourceFile(args.file, env)
+  .then(function() {
+    return saveExecutionState(args, env, out, null);
+  }).then(function() {
+    console.log("Completed run without errors.");
+  })
 }
 
 
@@ -182,5 +216,10 @@ parser.addArgument(
     {defaultValue: 10000,
      type: 'int',
      help: 'Maximum size of stack'});
+parser.addArgument(
+    ['-t', '--tag'],
+    {defaultValue: null,
+     type: 'string',
+     help: 'Tag for this execution'});
 
 main(parser.parseArgs());
