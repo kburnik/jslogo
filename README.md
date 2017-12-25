@@ -12,17 +12,19 @@ Requires nodejs >= 8.
 sudo apt-get install libcairo2-dev libjpeg-dev libpango1.0-dev libgif-dev \
   build-essential g++
 
+# For usage
+npm install jslogo
+
+# For development
+git clone https://github.com/kburnik/jslogo.git
 npm update
 ```
-
 
 ## Usage
 
 ```
 mkdir out
-node headless.js \
-  --file examples/example.lgo \
-  --out out/example
+./jslogo.js --file examples/example.lgo --out out/example
 ```
 
 This will execute the code from `example.lgo` and store the image and text

@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 
 const ArgumentParser = require('argparse').ArgumentParser;
-const autotrace = require('autotrace');
 const BoundingBox = require('./boundingbox.js');
 const Canvas = require('canvas');
 const floodFill = require('./floodfill.js')
