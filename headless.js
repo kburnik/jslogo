@@ -153,11 +153,13 @@ function main(args) {
 
   var handlingError = false;
   process.on('unhandledRejection', (err) => {
+    // Prevent recursive failure.
     if (handlingError) {
-      console.error("Already handling an error.");
+      console.error(err);
       process.exit(2);
     }
     handlingError = true;
+
     env.updateExecutionDetails();
     saveError(util.format(err), out.error)
     .then(function() {
@@ -165,6 +167,7 @@ function main(args) {
     })
     .then(function(){
       console.error(err);
+      console.error("One or more errors have occurred during the run.");
       process.exit(1);
     })
   });
@@ -173,7 +176,7 @@ function main(args) {
   .then(function() {
     return saveExecutionState(args, env, out, null);
   }).then(function() {
-    console.log("Completed run without errors.");
+    console.log("Completed the run successfully.");
   })
 }
 
