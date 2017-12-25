@@ -88,10 +88,8 @@ function executeSourceFile(sourceFilename, env) {
   return fs.readFileAsync(sourceFilename, 'utf8')
     .then(function(sourceCode) {
       env.startTimer();
-      console.log('Running');
       return env.logo.run(sourceCode);
     }).then(function() {
-      console.log('Done.');
       env.updateExecutionDetails();
     });
 }
@@ -102,10 +100,29 @@ function saveExecutionState(args, env, out, err) {
   env.executionDetails.error = err;
   var boundingBox = env.executionDetails.boundingBox;
   var box = boundingBox.expand(args.margin).toImageCoordinates();
-  return Promise.all([
-    saveImage(env.canvas.toBuffer(), box, out.image),
-    saveExecutionDetails(env.executionDetails, out.details)
-  ]);
+
+  if (args.combined) {
+    return saveCombined(env, out.text, box, args.out);
+  } else {
+    return Promise.all([
+      saveImage(env.canvas.toBuffer(), box, out.image),
+      saveExecutionDetails(env.executionDetails, out.details)
+    ]);
+  }
+}
+
+function saveCombined(env, textFilename, box, combinedFilename) {
+  return fs.readFileAsync(textFilename, 'utf8')
+  .then(function(text) {
+    var combinedOutput = {
+       'image': env.canvas.toDataURL(),
+       'text': text,
+       'details': env.executionDetails};
+    var serialized = JSON.stringify(combinedOutput, null, 2);
+    return fs.writeFileAsync(combinedFilename, serialized);
+  }).then(function() {
+    return fs.unlink(textFilename, function() {});
+  });
 }
 
 function saveImage(bufferedImage, box, filename) {
@@ -135,14 +152,14 @@ function saveExecutionDetails(executionDetails, detailsFilename) {
 
 function main(args) {
   var out = {
-    output: args.out + '.out',
+    text: args.out + '.txt',
     image: args.out + '.png',
     details: args.out + '.json',
     error: args.out + ".err"
   }
 
   // Create stream for text output.
-  var wstream = fs.createWriteStream(out.output);
+  var wstream = fs.createWriteStream(out.text);
 
   var env = buildEnvironment(
       args.width,
@@ -168,7 +185,6 @@ function main(args) {
     })
     .then(function(){
       console.error(err);
-      console.error("One or more errors have occurred during the run.");
       process.exit(1);
     })
   });
@@ -176,8 +192,6 @@ function main(args) {
   executeSourceFile(args.file, env)
   .then(function() {
     return saveExecutionState(args, env, out, null);
-  }).then(function() {
-    console.log("Completed the run successfully.");
   })
 }
 
@@ -225,5 +239,10 @@ parser.addArgument(
     {defaultValue: null,
      type: 'string',
      help: 'Tag for this execution'});
+parser.addArgument(
+    ['-c', '--combined'],
+    {defaultValue: false,
+     action: 'storeTrue',
+     help: 'Store combined output, a single JSON encoded file'});
 
 main(parser.parseArgs());
