@@ -1,6 +1,6 @@
 {
   "name": "jslogo",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Headless Logo interpreter (based on Joshua Bell's JS Logo)",
   "main": "jslogo.js",
   "scripts": {},
