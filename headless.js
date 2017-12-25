@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 const ArgumentParser = require('argparse').ArgumentParser;
 const autotrace = require('autotrace');
 const BoundingBox = require('./boundingbox.js');
