@@ -22,9 +22,8 @@ npm update
 mkdir out
 node headless.js \
   --file examples/example.lgo \
-  --out_image out/out.png \
-  --out_text out/out.txt
+  --out out/example
 ```
 
 This will execute the code from `example.lgo` and store the image and text
-outputs.
+along with other outputs with the specified prefix.

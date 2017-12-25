@@ -1,0 +1,2 @@
+make "x 0
+while [ 1 = 1 ] [ make "x :x + 1 ]

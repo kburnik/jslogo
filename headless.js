@@ -14,7 +14,7 @@ const Jimp = require('jimp');
 fs.readFileAsync = util.promisify(fs.readFile);
 fs.writeFileAsync = util.promisify(fs.writeFile);
 
-function buildEnvironment(canvasWidth, canvasHeight, wstream) {
+function buildEnvironment(canvasWidth, canvasHeight, maxCycles, wstream) {
   var canvas = new Canvas(canvasWidth, canvasHeight, 'png');
   var turtle_canvas = new Canvas(10, 10);
   var canvas_ctx = canvas.getContext('2d');
@@ -26,6 +26,7 @@ function buildEnvironment(canvasWidth, canvasHeight, wstream) {
   // Set up the default size for empty images.
   boundingBox.update(0, 0);
 
+  // Attach the filling extension.
   canvas_ctx.floodFill = floodFill;
 
   var turtle = new Turtle(
@@ -37,45 +38,59 @@ function buildEnvironment(canvasWidth, canvasHeight, wstream) {
       /*moveCallback=*/function(x, y) {
         if (turtle.pendown) {
           boundingBox.update(x, y);
-          console.log(boundingBox.min, boundingBox.max);
         }
       });
 
   var logo = new LogoInterpreter(
-    turtle, stream,
-    function (name, def) {
-
-    });
+      turtle,
+      stream,
+      /*savehook=*/false,
+      maxCycles);
 
   return {logo: logo, canvas: canvas, stream: stream, box: boundingBox};
 }
 
-function main(args) {
-  var wstream = fs.createWriteStream(args.out_text);
 
-  var env = buildEnvironment(args.width, args.height, wstream);
+process.on('unhandledRejection', (err) => {
+  console.error(err);
+  process.exit(2);
+});
+
+
+function main(args) {
+  var out = {
+    text: args.out + ".txt",
+    html: args.out + ".html",
+    image: args.out + ".png",
+    details: args.out + ".json"
+  }
+  var wstream = fs.createWriteStream(out.text);
+
+  var env = buildEnvironment(args.width, args.height, args.max_cycles, wstream);
   var startTime = null;
   var executionTime = null;
+  var box = null;
 
   fs.readFileAsync(args.file, 'utf8')
   .then(function(sourceCode) {
     startTime = process.hrtime();
+    console.log("Running");
     return env.logo.run(sourceCode);
   })
   .then(function() {
+    console.log("Done.");
     executionTime = process.hrtime(startTime)[1] / 1000000;
     wstream.end();
-    return fs.writeFileAsync(args.out_image, env.canvas.toBuffer());
+    return fs.writeFileAsync(out.image, env.canvas.toBuffer());
   })
   .then(function() {
-    return Jimp.read(args.out_image)
+    return Jimp.read(out.image)
   })
   .then(function(image) {
     return new Promise(function(resolve, reject) {
-      var box = env.box.expand(args.margin).toImageCoordinates();
-      console.log(box);
+      box = env.box.expand(args.margin).toImageCoordinates();
       image.crop(box.min.x, box.min.y, box.width, box.height)
-        .write(args.out_image, function(err){
+        .write(out.image, function(err){
           if (err) reject();
           resolve();
         });
@@ -83,17 +98,25 @@ function main(args) {
   })
   .then(function() {
     return fs.writeFileAsync(
-        args.out_image.replace(".png", ".html"),
+        out.html,
         '<body style="background: black; width:100%; height:100%;">' +
-        '<img src="' + args.out_image.split('/').pop() + '" /></body>');
+        '<img src="' + out.image.split('/').pop() + '" /></body>');
   })
-  .then(function(){
-    console.info('Execution took', executionTime, 'ms');
-    process.exit(0);
+  .then(function() {
+    return fs.writeFileAsync(
+        out.details,
+        JSON.stringify({
+          'execution': {time: executionTime, cycles: env.logo.cycles},
+          'bounding_box': [box.min.x, box.min.y, box.max.x, box.max.y],
+        }, null, 2));
   })
   .catch(function(err) {
     console.error("Error", err);
     process.exit(1);
+  })
+  .then(function(){
+    console.info('Execution took', executionTime, 'ms');
+    process.exit(0);
   });
 }
 
@@ -109,26 +132,27 @@ parser.addArgument(
     {defaultValue: '/dev/stdin',
      help: 'Logo file to execute'});
 parser.addArgument(
-    ['-oi', '--out_image'],
-    {defaultValue: 'out.png',
-     help: 'Filename for the output image'});
-parser.addArgument(
-    ['-ot', '--out_text'],
-    {defaultValue: 'out.txt',
-     help: 'Filename for the output text'});
+    ['-o', '--out'],
+    {defaultValue: 'out',
+     help: 'Filename prefix for outputs'});
 parser.addArgument(
     ['-cw', '--width'],
     {defaultValue: 1000,
      type: 'int',
      help: 'Canvas width in pixels'});
 parser.addArgument(
+    ['-ch', '--height'],
+    {defaultValue: 1000,
+     help: 'Canvas height in pixels'});
+parser.addArgument(
     ['-m', '--margin'],
     {defaultValue: 5,
      type: 'int',
      help: 'Bounding box margin (pixels)'});
 parser.addArgument(
-    ['-ch', '--height'],
-    {defaultValue: 1000,
-     help: 'Canvas height in pixels'});
+    ['-x', '--max_cycles'],
+    {defaultValue: 50000,
+     type: 'int',
+     help: 'Maximum number of execution cycles'});
 
 main(parser.parseArgs());

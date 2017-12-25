@@ -16,7 +16,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-function LogoInterpreter(turtle, stream, savehook)
+function LogoInterpreter(turtle, stream, savehook, maxCycles)
 {
   'use strict';
 
@@ -41,7 +41,8 @@ function LogoInterpreter(turtle, stream, savehook)
     BAD_BRACKET: 26,
     BAD_BRACE: 27,
     USER_GENERATED: 35,
-    MISSING_SPACE: 39
+    MISSING_SPACE: 39,
+    NON_RESPONSIVE: 500
   };
 
   //----------------------------------------------------------------------
@@ -360,6 +361,8 @@ function LogoInterpreter(turtle, stream, savehook)
   self.plists = new StringMap(true);
   self.prng = new PRNG(Math.random() * 0x7fffffff);
   self.forceBye = false;
+  self.cycles = 0;
+  self.maxCycles = typeof maxCycles != 'undefined' ? maxCycles : -1;
 
   //----------------------------------------------------------------------
   //
@@ -1096,6 +1099,15 @@ function LogoInterpreter(turtle, stream, savehook)
 
     var lastResult;
     return promiseLoop(function(loop, resolve, reject) {
+      self.cycles++;
+      if (self.maxCycles > 0 && self.cycles >= maxCycles) {
+        reject(err(
+            'Max cycles reached: {maxCycles}',
+            {maxCycles: maxCycles},
+            ERRORS.NON_RESPONSIVE));
+        return;
+      }
+
       if (self.forceBye) {
         self.forceBye = false;
         reject(new Bye);
