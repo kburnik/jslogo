@@ -1,30 +1,44 @@
-# jslogo - nodejs enabled headless execution.
+# jslogo - Logo interpreter with headless execution support
 
-Forked from: https://github.com/inexorabletash/jslogo/
+The nodejs version of jslogo allows you to execute Logo source files in a shell
+environment without needing to run a browser. The output image and text are
+stored in the location specified by the command line arguments.
+
+This is especially convenient for doing automation with Logo programs.
+
+## Credits
+
+This is a forked project based on Joshua Bell's JS Logo:
+
+https://github.com/inexorabletash/jslogo/
+
+He's done a tremendous job at developing the interpreter and definitely deserves
+the credit. My small contributions is just enabling this to run server side.
 
 
 ## Installation
 
 Requires nodejs >= 8.
 
-```
+```bash
 # for canvas
 sudo apt-get install libcairo2-dev libjpeg-dev libpango1.0-dev libgif-dev \
   build-essential g++
 
-# For usage
-npm install jslogo
+# For using jslogo in a shell environment
+npm install -g jslogo
 
 # For development
-git clone https://github.com/kburnik/jslogo.git
-npm update
+git clone https://github.com/kburnik/jslogo.git && \
+  cd jslogo && \
+  npm update
 ```
 
 ## Usage
 
-```
+```bash
 mkdir out
-./jslogo.js --file examples/example.lgo --out out/example
+jslogo -f examples/example.lgo -o out/example
 ```
 
 This will execute the code from `example.lgo` and store the image and text

@@ -13,6 +13,7 @@
   "bugs": {
     "url": "https://github.com/kburnik/jslogo/issues"
   },
+  "bin" : { "jslogo" : "./jslogo.js" },
   "homepage": "https://github.com/kburnik/jslogo#readme",
   "dependencies": {
     "argparse": "^1.0.9",
