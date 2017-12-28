@@ -13,7 +13,7 @@ This is a forked project based on Joshua Bell's JS Logo:
 https://github.com/inexorabletash/jslogo/
 
 He's done a tremendous job at developing the interpreter and definitely deserves
-the credit. My small contributions is just enabling this to run server side.
+the credit. My small contribution is just enabling this to run server side.
 
 
 ## Installation
